@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 const Disease = () => {
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
@@ -32,7 +33,6 @@ const Disease = () => {
     Alert.alert("存檔成功", `部位：${selectedPart}\n診斷：${finalType}\n已同步至您的醫療安全網。`);
   };
 
-  // 輔助組件：建立一個「透明且較大」的點擊感應區
   const HitArea = ({ cx, cy, r = 25, part }: { cx: number, cy: number, r?: number, part: string }) => (
     <Circle
       cx={cx}
@@ -46,8 +46,9 @@ const Disease = () => {
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: '#F0F4F8' }}
     >
+      <StatusBar barStyle="dark-content" />
       <ScrollView 
         style={styles.container} 
         contentContainerStyle={styles.contentContainer}
@@ -55,59 +56,73 @@ const Disease = () => {
       >
         <View style={styles.header}>
           <Text style={styles.title}>醫療安全網</Text>
-          <View style={styles.badge}><Text style={styles.badgeText}>精密傷病記錄</Text></View>
+          <View style={styles.badge}>
+            <View style={styles.pulseDot} />
+            <Text style={styles.badgeText}>PRECISION TRACKING</Text>
+          </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>1. 定位受傷位置</Text>
-          <Text style={styles.statusText}>
-            目前選取：<Text style={styles.highlightText}>{selectedPart || '請點擊圖示部位'}</Text>
+        {/* 1. Body Selector Card */}
+        <View style={[styles.card, styles.shadowProp]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.stepCircle}><Text style={styles.stepText}>1</Text></View>
+            <Text style={styles.cardTitle}>受傷位置定位</Text>
+          </View>
+          
+          <Text style={styles.statusLabel}>
+            選定區域：<Text style={styles.selectedText}>{selectedPart || '等待選取...'}</Text>
           </Text>
           
-          <View style={styles.illustrationWrapper}>
-            {/* 增加 pointerEvents 確保事件正確傳遞 */}
-            <Svg height="350" width="220" viewBox="0 0 200 400">
+          <View style={styles.illustrationContainer}>
+            
+            <Svg height="380" width="220" viewBox="0 0 200 400">
+              <Defs>
+                <LinearGradient id="selectedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#FB7185" />
+                  <Stop offset="100%" stopColor="#E11D48" />
+                </LinearGradient>
+              </Defs>
               <G>
-                {/* --- 視覺層：繪製人體 --- */}
-                <Circle cx="100" cy="40" r="25" fill={selectedPart === '頭部' ? '#FF5252' : '#CBD5E0'} />
-                <Rect x="85" y="65" width="30" height="15" fill={selectedPart === '頸部' ? '#FF5252' : '#CBD5E0'} />
-                <Path d="M70,85 L130,85 L135,180 L65,180 Z" fill={selectedPart === '核心軀幹' ? '#FF5252' : '#CBD5E0'} />
-                <Circle cx="60" cy="95" r="12" fill={selectedPart === '左肩' ? '#FF5252' : '#A0AEC0'} />
-                <Circle cx="140" cy="95" r="12" fill={selectedPart === '右肩' ? '#FF5252' : '#A0AEC0'} />
-                <Path d="M45,100 L55,180 L35,180 Z" fill={selectedPart === '左臂' ? '#FF5252' : '#CBD5E0'} />
-                <Path d="M155,100 L145,180 L165,180 Z" fill={selectedPart === '右臂' ? '#FF5252' : '#CBD5E0'} />
-                <Circle cx="45" cy="185" r="8" fill={selectedPart === '左肘' ? '#FF5252' : '#718096'} />
-                <Circle cx="155" cy="185" r="8" fill={selectedPart === '右肘' ? '#FF5252' : '#718096'} />
-                <Path d="M65,185 L98,185 L98,280 L60,280 Z" fill={selectedPart === '左大腿' ? '#FF5252' : '#CBD5E0'} />
-                <Path d="M102,185 L135,185 L140,280 L102,280 Z" fill={selectedPart === '右大腿' ? '#FF5252' : '#CBD5E0'} />
-                <Circle cx="78" cy="295" r="10" fill={selectedPart === '左膝' ? '#FF5252' : '#718096'} />
-                <Circle cx="122" cy="295" r="10" fill={selectedPart === '右膝' ? '#FF5252' : '#718096'} />
-                <Path d="M70,310 L88,310 L85,380 L65,380 Z" fill={selectedPart === '左小腿' ? '#FF5252' : '#CBD5E0'} />
-                <Path d="M112,310 L130,310 L135,380 L115,380 Z" fill={selectedPart === '右小腿' ? '#FF5252' : '#CBD5E0'} />
+                {/* 簡約質感人體 */}
+                <Circle cx="100" cy="40" r="25" fill={selectedPart === '頭部' ? "url(#selectedGrad)" : '#CBD5E1'} />
+                <Rect x="88" y="65" width="24" height="15" rx="4" fill={selectedPart === '頸部' ? "url(#selectedGrad)" : '#CBD5E1'} />
+                <Path d="M75,85 Q100,80 125,85 L130,175 Q100,185 70,175 Z" fill={selectedPart === '核心軀幹' ? "url(#selectedGrad)" : '#E2E8F0'} />
+                
+                {/* 關節點標註 */}
+                <Circle cx="60" cy="95" r="12" fill={selectedPart === '左肩' ? "url(#selectedGrad)" : '#94A3B8'} stroke="#FFF" strokeWidth="2" />
+                <Circle cx="140" cy="95" r="12" fill={selectedPart === '右肩' ? "url(#selectedGrad)" : '#94A3B8'} stroke="#FFF" strokeWidth="2" />
+                
+                <Path d="M45,100 L55,180" stroke={selectedPart === '左臂' ? "#E11D48" : '#94A3B8'} strokeWidth="12" strokeLinecap="round" />
+                <Path d="M155,100 L145,180" stroke={selectedPart === '右臂' ? "#E11D48" : '#94A3B8'} strokeWidth="12" strokeLinecap="round" />
+                
+                <Circle cx="75" cy="230" r="18" fill={selectedPart === '左大腿' ? "url(#selectedGrad)" : '#CBD5E1'} />
+                <Circle cx="125" cy="230" r="18" fill={selectedPart === '右大腿' ? "url(#selectedGrad)" : '#CBD5E1'} />
+                
+                <Circle cx="75" cy="300" r="12" fill={selectedPart === '左膝' ? "url(#selectedGrad)" : '#64748B'} stroke="#FFF" strokeWidth="2" />
+                <Circle cx="125" cy="300" r="12" fill={selectedPart === '右膝' ? "url(#selectedGrad)" : '#64748B'} stroke="#FFF" strokeWidth="2" />
 
-                {/* --- 觸控層：透明且較大的感應區域，放在最上層 --- */}
+                {/* 觸控層 */}
                 <HitArea cx={100} cy={40} r={35} part="頭部" />
                 <HitArea cx={100} cy={72} r={20} part="頸部" />
-                <HitArea cx={100} cy={130} r={40} part="核心軀幹" />
-                <HitArea cx={60} cy={95} r={22} part="左肩" />
-                <HitArea cx={140} cy={95} r={22} part="右肩" />
-                <HitArea cx={45} cy={140} r={25} part="左臂" />
-                <HitArea cx={155} cy={140} r={25} part="右臂" />
-                <HitArea cx={45} cy={185} r={20} part="左肘" />
-                <HitArea cx={155} cy={185} r={20} part="右肘" />
-                <HitArea cx={78} cy={230} r={30} part="左大腿" />
-                <HitArea cx={122} cy={230} r={30} part="右大腿" />
-                <HitArea cx={78} cy={295} r={25} part="左膝" />
-                <HitArea cx={122} cy={295} r={25} part="右膝" />
-                <HitArea cx={78} cy={345} r={25} part="左小腿" />
-                <HitArea cx={122} cy={345} r={25} part="右小腿" />
+                <HitArea cx={100} cy={130} r={50} part="核心軀幹" />
+                <HitArea cx={60} cy={95} r={25} part="左肩" />
+                <HitArea cx={140} cy={95} r={25} part="右肩" />
+                <HitArea cx={75} cy={230} r={30} part="左大腿" />
+                <HitArea cx={125} cy={230} r={30} part="右大腿" />
+                <HitArea cx={75} cy={300} r={25} part="左膝" />
+                <HitArea cx={125} cy={300} r={25} part="右膝" />
               </G>
             </Svg>
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>2. 傷病類型標註</Text>
+        {/* 2. Injury Type Card */}
+        <View style={[styles.card, styles.shadowProp]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.stepCircle}><Text style={styles.stepText}>2</Text></View>
+            <Text style={styles.cardTitle}>傷病性質診斷</Text>
+          </View>
+          
           <View style={styles.chipContainer}>
             {injuryCategories.map((type) => (
               <TouchableOpacity
@@ -120,10 +135,13 @@ const Disease = () => {
             ))}
           </View>
 
-          <Text style={styles.inputLabel}>或是自定義描述：</Text>
+          <View style={styles.divider} />
+
+          <Text style={styles.inputLabel}>補充詳細狀況</Text>
           <TextInput
             style={styles.input}
-            placeholder="例如：稍微紅腫、早起僵硬..."
+            placeholder="點擊輸入自定義描述..."
+            placeholderTextColor="#94A3B8"
             value={customInjury}
             onChangeText={(text) => { setCustomInjury(text); setInjuryType(null); }}
           />
@@ -132,79 +150,125 @@ const Disease = () => {
         <TouchableOpacity 
           style={[styles.saveButton, (!selectedPart || (!injuryType && !customInjury)) && styles.disabledButton]} 
           onPress={handleSave}
-          activeOpacity={0.8}
+          activeOpacity={0.9}
         >
-          <Text style={styles.saveButtonText}>確認並存入檔案</Text>
+          <Text style={styles.saveButtonText}>確認並同步雲端數據</Text>
         </TouchableOpacity>
+        
+        <Text style={styles.footerNote}>資料將透過加密通訊協議存儲於個人醫療庫</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  contentContainer: { padding: 20 },
-  header: { alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1E293B', letterSpacing: 1 },
-  badge: { backgroundColor: '#E2E8F0', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginTop: 5 },
-  badgeText: { fontSize: 12, color: '#64748B', fontWeight: 'bold' },
+  container: { flex: 1 },
+  contentContainer: { padding: 20, paddingTop: 40 },
+  header: { marginBottom: 25 },
+  title: { fontSize: 32, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+  badge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#FFFFFF', 
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10, 
+    paddingVertical: 5, 
+    borderRadius: 8, 
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+  pulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 6 },
+  badgeText: { fontSize: 10, color: '#64748B', fontWeight: '800', letterSpacing: 1 },
+  
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
   },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#334155', marginBottom: 15 },
-  statusText: { fontSize: 14, color: '#94A3B8', marginBottom: 10 },
-  highlightText: { color: '#FF5252', fontWeight: 'bold' },
-  illustrationWrapper: { 
-    height: 380, 
+  shadowProp: {
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  stepCircle: { 
+    width: 28, 
+    height: 28, 
+    borderRadius: 14, 
+    backgroundColor: '#0F172A', 
     justifyContent: 'center', 
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 15,
+    marginRight: 10
   },
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 15 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  chipSelected: { backgroundColor: '#334155', borderColor: '#334155' },
-  chipText: { color: '#64748B', fontSize: 14 },
-  chipTextSelected: { color: '#FFFFFF', fontWeight: '600' },
-  inputLabel: { fontSize: 14, color: '#64748B', marginBottom: 8, marginTop: 5 },
-  input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    color: '#1E293B',
-  },
-  saveButton: {
-    backgroundColor: '#FF5252',
-    padding: 18,
-    borderRadius: 16,
+  stepText: { color: '#FFF', fontSize: 14, fontWeight: '800' },
+  cardTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
+  
+  statusLabel: { fontSize: 14, color: '#64748B', marginBottom: 15 },
+  selectedText: { color: '#E11D48', fontWeight: '800', fontSize: 16 },
+  
+  illustrationContainer: { 
+    height: 400, 
+    justifyContent: 'center', 
     alignItems: 'center',
-    shadowColor: '#FF5252',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9'
+  },
+  
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  chipSelected: { 
+    backgroundColor: '#1E293B', 
+    borderColor: '#1E293B',
+    shadowColor: '#1E293B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 5,
-    marginBottom: 30
   },
-  disabledButton: { backgroundColor: '#CBD5E0', shadowOpacity: 0 },
-  saveButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
+  chipText: { color: '#475569', fontSize: 14, fontWeight: '600' },
+  chipTextSelected: { color: '#FFFFFF' },
+  
+  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 20 },
+  inputLabel: { fontSize: 14, color: '#64748B', fontWeight: '700', marginBottom: 10 },
+  input: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 15,
+    color: '#0F172A',
+  },
+  
+  saveButton: {
+    backgroundColor: '#E11D48',
+    padding: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 8,
+    marginTop: 10,
+    marginBottom: 10
+  },
+  disabledButton: { backgroundColor: '#CBD5E1', shadowOpacity: 0 },
+  saveButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900' },
+  
+  footerNote: { textAlign: 'center', color: '#94A3B8', fontSize: 12, marginBottom: 40 },
 });
 
 export default Disease;

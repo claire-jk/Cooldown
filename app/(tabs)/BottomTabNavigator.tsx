@@ -5,6 +5,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 
 // --- 關鍵修改：匯入你的 AISessionScreen ---
 import AISessionScreen from './AISessionScreen';
+import Disease from './Disease';
 
 const Tab = createBottomTabNavigator();
 
@@ -70,8 +71,8 @@ const BottomTabNavigator = () => {
       />
 
       <Tab.Screen 
-        name="MedicalSafety" 
-        component={TempScreen} 
+        name="Disease" 
+        component={Disease} 
         options={{
           title: '醫療安全網',
           tabBarLabel: '避讓設定',

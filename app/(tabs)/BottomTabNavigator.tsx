@@ -6,6 +6,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 // --- 關鍵修改：匯入你的 AISessionScreen ---
 import AISessionScreen from './AISessionScreen';
 import Disease from './Disease';
+import MemberScreen from './MemberScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -82,7 +83,7 @@ const BottomTabNavigator = () => {
 
       <Tab.Screen 
         name="Profile" 
-        component={TempScreen} 
+        component={MemberScreen} 
         options={{
           title: '個人檔案',
           tabBarLabel: '我的',

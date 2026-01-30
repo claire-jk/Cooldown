@@ -6,6 +6,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 // --- 關鍵修改：匯入你的 AISessionScreen ---
 import AISessionScreen from './AISessionScreen';
 import Disease from './Disease';
+import HealthDataAnalysis from './HealthDataAnalysis';
 import MemberScreen from './MemberScreen';
 
 const Tab = createBottomTabNavigator();
@@ -62,8 +63,8 @@ const BottomTabNavigator = () => {
       />
       
       <Tab.Screen 
-        name="Assessment" 
-        component={TempScreen} 
+        name="HealthDataAnalysis" 
+        component={HealthDataAnalysis} 
         options={{
           title: '狀態評估',
           tabBarLabel: '疲勞分析',

@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBlocwxGBIXgUAIknp86iYXkaRG03Z09xk",
@@ -10,8 +12,8 @@ const firebaseConfig = {
   appId: "1:463360148211:web:274277875aad4762666d86",
 };
 
-// 初始化 Firebase
 const app = initializeApp(firebaseConfig);
 
-// 直接匯出 auth，不使用複雜的 persistence 設定
 export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);

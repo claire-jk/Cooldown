@@ -1,23 +1,15 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Activity, Camera, ShieldAlert, User } from 'lucide-react-native';
 import React from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 
-// --- 關鍵修改：匯入你的 AISessionScreen ---
 import AISessionScreen from './AISessionScreen';
 import Disease from './Disease';
 import HealthDataAnalysis from './HealthDataAnalysis';
 import MemberScreen from './MemberScreen';
 
 const Tab = createBottomTabNavigator();
-
-// 剩下的 TempScreen 保持不變，直到你完成其他頁面
-const TempScreen = ({ route }: any) => (
-  <View style={styles.tempContainer}>
-    <Text style={styles.tempTitle}>{route.name} 頁面建設中...</Text>
-    <Text style={styles.tempSubtitle}>稍後建立檔案後再進行替換</Text>
-  </View>
-);
+const { width } = Dimensions.get('window');
 
 const BottomTabNavigator = () => {
   return (
@@ -25,40 +17,39 @@ const BottomTabNavigator = () => {
       screenOptions={{
         headerShown: true,
         headerTitleAlign: 'center',
-        headerTitleStyle: {
-          fontFamily: 'Zen',
-          fontSize: 20,
-          color: '#2C3E50',
-          ...Platform.select({
-            ios: { fontWeight: '600' },
-            android: { fontWeight: 'bold' },
-          }),
+        // --- 核心修改：美化 Header 容器 ---
+        headerStyle: styles.headerContainer,
+        headerTitleContainerStyle: {
+          paddingBottom: 10, // 微調標題位置
         },
-        headerStyle: {
-          backgroundColor: '#FFFFFF',
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: '#F1F5F9',
-        },
+        headerTitle: ({ children }) => (
+          <View style={styles.titleWrapper}>
+            <Text style={styles.headerTitleText}>{children}</Text>
+          </View>
+        ),
+        // --- Tab Bar 整體樣式 ---
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: '#3498DB',
         tabBarInactiveTintColor: '#94A3B8',
+        tabBarShowLabel: true,
         tabBarLabelStyle: {
-          fontFamily: 'Zen',
           fontSize: 11,
-          marginBottom: 5,
+          fontFamily: 'Zen',
+          marginBottom: Platform.OS === 'ios' ? 0 : 10,
         },
       }}
     >
-      {/* --- 關鍵修改：更換 component --- */}
       <Tab.Screen 
         name="AISession" 
         component={AISessionScreen} 
         options={{
-          title: '智慧收操',
+          title: '智慧導引',
           tabBarLabel: 'AI 導引',
-          tabBarIcon: ({ color, size }) => <Camera size={size} stroke={color} strokeWidth={2.5} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconContainer, focused && styles.activeIconBg]}>
+              <Camera size={22} color={focused ? '#FFF' : color} strokeWidth={2.5} />
+            </View>
+          ),
         }}
       />
       
@@ -66,9 +57,11 @@ const BottomTabNavigator = () => {
         name="HealthDataAnalysis" 
         component={HealthDataAnalysis} 
         options={{
-          title: '狀態評估',
-          tabBarLabel: '疲勞分析',
-          tabBarIcon: ({ color, size }) => <Activity size={size} stroke={color} strokeWidth={2.5} />,
+          title: '疲勞評估',
+          tabBarLabel: '數據分析',
+          tabBarIcon: ({ color, focused }) => (
+            <Activity size={focused ? 26 : 22} color={color} strokeWidth={2.5} />
+          ),
         }}
       />
 
@@ -76,9 +69,11 @@ const BottomTabNavigator = () => {
         name="Disease" 
         component={Disease} 
         options={{
-          title: '醫療安全網',
-          tabBarLabel: '避讓設定',
-          tabBarIcon: ({ color, size }) => <ShieldAlert size={size} stroke={color} strokeWidth={2.5} />,
+          title: '醫療避讓',
+          tabBarLabel: '安全網',
+          tabBarIcon: ({ color, focused }) => (
+            <ShieldAlert size={focused ? 26 : 22} color={color} strokeWidth={2.5} />
+          ),
         }}
       />
 
@@ -86,14 +81,11 @@ const BottomTabNavigator = () => {
         name="Profile" 
         component={MemberScreen} 
         options={{
-          title: '個人檔案',
+          title: '個人中心',
           tabBarLabel: '我的',
-          headerTitleStyle: {
-            fontFamily: 'Caveat-Bold',
-            fontSize: 28,
-            color: '#34495E',
-          },
-          tabBarIcon: ({ color, size }) => <User size={size} stroke={color} strokeWidth={2.5} />,
+          tabBarIcon: ({ color, focused }) => (
+            <User size={focused ? 26 : 22} color={color} strokeWidth={2.5} />
+          ),
         }}
       />
     </Tab.Navigator>
@@ -101,34 +93,66 @@ const BottomTabNavigator = () => {
 };
 
 const styles = StyleSheet.create({
-  tabBar: {
-    height: Platform.OS === 'ios' ? 88 : 70,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 10,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 5,
+  // --- 標題美化樣式 ---
+  headerContainer: {
+    backgroundColor: '#F8FAFC', 
+    height: Platform.OS === 'ios' ? 110 : 90,
+    elevation: 0,
+    shadowOpacity: 0,
+    borderBottomWidth: 0,
   },
-  tempContainer: {
-    flex: 1,
+  titleWrapper: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    borderRadius: 50, // 膠囊型標題背景
+    marginTop: Platform.OS === 'ios' ? 0 : 10,
+    // 增加細微陰影讓標題浮現
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  headerTitleText: {
+    fontSize: 16,
+    fontFamily: 'Zen',
+    color: '#1E293B',
+    letterSpacing: 1,
+  },
+  // --- Tab Bar 樣式 (保持並優化) ---
+  tabBar: {
+    position: 'absolute',
+    bottom: 25,
+    left: 20,
+    right: 20,
+    height: 70,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 30, // 更圓潤
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+    borderTopWidth: 0,
+    paddingBottom: Platform.OS === 'ios' ? 0 : 0,
+    overflow: 'hidden',
+  },
+  iconContainer: {
+    width: 42,
+    height: 42,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    borderRadius: 21, // 圓形背景
   },
-  tempTitle: {
-    fontSize: 18,
-    fontFamily: 'Zen',
-    fontWeight: 'bold',
-    color: '#334155',
-  },
-  tempSubtitle: {
-    color: '#64748B',
-    marginTop: 10,
-    fontFamily: 'Zen',
+  activeIconBg: {
+    backgroundColor: '#3498DB',
+    shadowColor: '#3498DB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5
   },
 });
 

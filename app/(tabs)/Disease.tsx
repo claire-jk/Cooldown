@@ -234,7 +234,7 @@ const Disease = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   contentContainer: { padding: 20, paddingTop: 40 },
-  header: { marginBottom: 25 },
+  header: { marginBottom: 25,marginTop:-40 },
   title: { fontSize: 34, fontFamily:'Zen', color: '#0F172A', letterSpacing: -1 },
   badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 10, borderWidth: 1, borderColor: '#E2E8F0' },
   pulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981', marginRight: 8 },

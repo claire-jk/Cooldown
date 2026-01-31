@@ -1,137 +1,226 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as posedetection from '@tensorflow-models/pose-detection';
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-react-native';
+import { decodeJpeg } from '@tensorflow/tfjs-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// 重要：確保包含 RN 初始化
-import '@tensorflow/tfjs-react-native';
-
-// TensorFlow 與 Pose Detection
-import * as posedetection from '@tensorflow-models/pose-detection';
-import * as tf from '@tensorflow/tfjs';
-import { decodeJpeg } from '@tensorflow/tfjs-react-native';
-
-// 圖標
-import { Activity, Briefcase, Play, ShieldCheck, User } from 'lucide-react-native';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from './firebaseConfig';
 
 const { width } = Dimensions.get('window');
+const STORAGE_KEY = '@health_fatigue_data';
 
-/* ---------- 專業收操動作資料庫 (新增圖片欄位) ---------- */
-type ExerciseType = '羽球' | '籃球' | '跑步' | '游泳' | '桌球' | '排球';
+type ExerciseType = '羽球' | '籃球' | '跑步' | '游泳' | '桌球' | '排球' | '長期久坐' | '長期久站' | '搬運重物';
 
-interface StretchStep {
-  title: string;
-  hint: string;
-  duration: number;
-  imageUrl: string; // ✅ 新增圖片路徑
-}
-
-const EXERCISE_ROUTINES: Record<ExerciseType, StretchStep[]> = {
-  羽球: [
-    { title: '股四頭肌伸展', hint: '單腳站立，手拉同側腳踝', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' },
-    { title: '膕繩肌伸展', hint: '臀部向後推，放鬆大腿後側', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048398.png' },
-    { title: '小腿腓腸肌伸展', hint: '雙手扶牆，一腳向後踩平', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048370.png' },
-    { title: '肩膀與背部放鬆', hint: '一隻手橫過胸前，另一手扣住', duration: 20, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048381.png' }
-  ],
-  籃球: [{ title: '臀部肌肉放鬆', hint: '坐姿，一腳跨過另一腳膝蓋轉向', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '股四頭肌伸展', hint: '單腳站立，手拉同側腳踝', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '核心與背部延展', hint: '雙手向上伸直，向左右側彎', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }],
-  跑步: [{ title: '小腿深層伸展', hint: '腳跟下沉延展小腿腓腸肌', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '大腿後側膕繩肌', hint: '一腳前伸腳尖勾起，身體前傾', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '臀大肌伸展', hint: '仰臥抱膝至胸前維持', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }],
-  游泳: [{ title: '肩旋轉肌群', hint: '牆角前傾或雙手後扣伸展肩膀', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '背闊肌伸展', hint: '單手向上抓柱子，身體向側推', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '肱三頭肌伸展', hint: '一手扶肘部，手掌摸向背後', duration: 20, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }],
-  桌球: [{ title: '腕部與手指放鬆', hint: '掌心向前，另一手將指尖向後拉', duration: 20, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '肩膀旋轉放鬆', hint: '緩慢旋轉肩關節，放鬆揮拍手', duration: 20, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '下肢穩定肌伸展', hint: '側壓腿，伸展大腿內側', duration: 20, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }],
-  排球: [{ title: '胸大肌擴張', hint: '雙手後扣挺胸，緩慢抬高', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '擊球手臂伸展', hint: '手臂伸直壓牆旋轉身體', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }, { title: '小腿爆發肌伸展', hint: '弓箭步維持，腳跟踩實', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }],
+const EXERCISE_IMPACT: Record<ExerciseType, string[]> = {
+  '羽球': ['手臂', '小腿', '肩部', '大腿', '腰部'],
+  '籃球': ['大腿', '小腿', '腰部', '肩部'],
+  '跑步': ['大腿', '小腿', '腰部'],
+  '游泳': ['肩部', '手臂', '腰部', '大腿'],
+  '桌球': ['手臂', '頸部', '肩部', '大腿'],
+  '排球': ['肩部', '大腿', '手臂', '小腿'],
+  '長期久坐': ['頸部', '腰部'],
+  '長期久站': ['小腿', '腰部', '大腿'],
+  '搬運重物': ['腰部', '手臂', '肩部'],
 };
 
-export default function AISessionScreen() {
+interface StretchStep {
+
+  title: string;
+
+  hint: string;
+
+  duration: number;
+
+  imageUrl: string;
+
+}
+
+
+
+const ROUTINES: Record<ExerciseType, StretchStep[]> = {
+
+  羽球: [
+
+    { title: '股四頭肌伸展', hint: '單腳站立，手拉同側腳踝往後', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' },
+
+    { title: '小腿腓腸肌放鬆', hint: '弓箭步，後腳跟踩死地面', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' },
+
+    { title: '肩膀與擊球臂伸展', hint: '一手橫過胸前，另一手扣住拉向身體', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048381.png' }
+
+  ],
+
+  籃球: [
+
+    { title: '臀部肌肉放鬆', hint: '坐姿，一腳跨過另一腳膝蓋轉向側邊', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' },
+
+    { title: '腿部綜合伸展', hint: '手觸腳尖，感受大腿後側拉伸', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' },
+
+    { title: '上肢肩膀放鬆', hint: '雙手向後互扣，挺胸向上抬', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048381.png' }
+
+  ],
+
+  跑步: [
+
+    { title: '大腿後側伸展', hint: '坐姿，一腳伸直，身體前傾摸腳趾', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' },
+
+    { title: '小腿深層拉伸', hint: '推牆做弓箭步，拉伸後腿小腿', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }
+
+  ],
+
+  游泳: [
+
+    { title: '肩旋轉肌群', hint: '手扶牆角，身體前傾旋轉肩膀', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048381.png' },
+
+    { title: '背闊肌拉伸', hint: '雙手抓門框，臀部向後坐，拉長側背', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048381.png' }
+
+  ],
+
+  桌球: [
+
+    { title: '腕部與手指放鬆', hint: '掌心向前，另一手將指尖向後壓', duration: 20, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' },
+
+    { title: '手臂肱二頭肌', hint: '手扶固定物，身體轉向另一側', duration: 20, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }
+
+  ],
+
+  排球: [
+
+    { title: '胸大肌擴張', hint: '雙手後扣挺胸，緩慢抬高', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048381.png' },
+
+    { title: '擊球手臂伸展', hint: '手臂舉高手肘彎曲，另一手向下壓手肘', duration: 25, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048381.png' }
+
+  ],
+
+  長期久坐: [{ title: '頸部與腰部', hint: '坐姿體前彎，頭部自然下垂', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }],
+
+  長期久站: [{ title: '足底與小腿', hint: '腳趾勾起，手扳住腳掌前緣', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }],
+
+  搬運重物: [{ title: '貓牛式背部', hint: '四足跪姿，背部交替拱起下沉', duration: 30, imageUrl: 'https://cdn-icons-png.flaticon.com/512/3048/3048344.png' }]
+
+};
+
+export default function AISessionScreen({ navigation }: any) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
-
   const [detector, setDetector] = useState<posedetection.PoseDetector | null>(null);
-  const [isModelReady, setIsModelReady] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
   const [isPoseCorrect, setIsPoseCorrect] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-
+  
   const [selectedMode, setSelectedMode] = useState('一般');
   const [exerciseType, setExerciseType] = useState<ExerciseType>('羽球');
-  const [intensity, setIntensity] = useState('中');
-  const [duration, setDuration] = useState('1h');
+  const [exerciseDuration, setExerciseDuration] = useState('30');
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [timer, setTimer] = useState(0);
-
   const timerRef = useRef<any>(null);
-  const routine = EXERCISE_ROUTINES[exerciseType];
-  const step = routine[currentStepIndex];
+
+  const isOfficeMode = selectedMode === '上班族';
+  const availableOptions = isOfficeMode 
+    ? (['長期久坐', '長期久站', '搬運重物'] as ExerciseType[])
+    : (['羽球', '籃球', '跑步', '游泳', '桌球', '排球'] as ExerciseType[]);
+
+  useEffect(() => { setExerciseType(availableOptions[0]); }, [selectedMode]);
 
   useEffect(() => {
     async function initTF() {
-      try {
-        await tf.ready();
-        await tf.setBackend('rn-webgl');
-        const model = posedetection.SupportedModels.MoveNet;
-        const detectorConfig = {
-          modelType: posedetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-          enableSmoothing: true,
-        };
-        const poseDetector = await posedetection.createDetector(model, detectorConfig);
-        setDetector(poseDetector);
-        setIsModelReady(true);
-      } catch (error) {
-        console.error("TF 初始化失敗:", error);
-      }
+      await tf.ready();
+      const poseDetector = await posedetection.createDetector(posedetection.SupportedModels.MoveNet, {
+        modelType: posedetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+      });
+      setDetector(poseDetector);
     }
     initTF();
-    return () => clearInterval(timerRef.current);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  const analyzePose = async () => {
-    if (!detector || !cameraRef.current || isAnalyzing) return;
-    setIsAnalyzing(true);
-    try {
-      // 確保 UI 有機會更新轉圈圈狀態
-      await tf.nextFrame(); 
+  const routine = ROUTINES[exerciseType] || ROUTINES['羽球'];
+  const step = routine[currentStepIndex];
 
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.2, // 降低畫質加速處理
-        base64: true,
-        skipProcessing: true,
+  // --- 新增：核心同步邏輯，點擊按鈕即觸發 ---
+  const syncFatigueData = async () => {
+    console.log("--- 立即同步流程開始 ---");
+    const impactedAreas = EXERCISE_IMPACT[exerciseType];
+    const today = new Date().toLocaleDateString('zh-TW');
+
+    try {
+      // 1. 本地讀取
+      const savedData = await AsyncStorage.getItem(STORAGE_KEY);
+      let currentScores: Record<string, number> = { "頸部": 0, "肩部": 0, "腰部": 0, "大腿": 0, "小腿": 0, "手臂": 0 };
+      
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        currentScores = parsed.scores || currentScores;
+      }
+
+      // 2. 計算加權
+      const fatigueGain = parseInt(exerciseDuration) >= 60 ? 20 : 10;
+      impactedAreas.forEach(area => {
+        if (currentScores[area] !== undefined) {
+          currentScores[area] = Math.min(100, currentScores[area] + fatigueGain);
+        }
       });
 
-      if (photo?.base64) {
-        const rawImageData = tf.util.encodeString(photo.base64, 'base64');
-        const uint8Array = new Uint8Array(rawImageData);
-        const imageTensor = decodeJpeg(uint8Array); // ✅ 移除 expandDims
+      const finalData = {
+        scores: currentScores,
+        lastExercise: exerciseType,
+        lastUpdate: today,
+        timestamp: new Date().getTime()
+      };
 
-        // 進行預測
-        const poses = await detector.estimatePoses(imageTensor);
+      console.log("準備寫入 Firebase:", JSON.stringify(finalData));
 
-        if (poses && poses.length > 0) {
-          const score = poses[0].score ?? 0;
-          if (score > 0.2) {
-            setIsPoseCorrect(true);
-            Speech.speak(`偵測成功，開始${step.title}`, { language: 'zh-TW' });
-            startTimer();
-          } else {
-            Speech.speak('請退後，確保全身入鏡', { language: 'zh-TW' });
-          }
-        }
-        imageTensor.dispose(); 
+      // 3. Firebase 寫入
+      if (auth.currentUser) {
+        const userRef = doc(db, "users", auth.currentUser.uid);
+        await setDoc(userRef, { fatigueData: finalData }, { merge: true });
+        console.log("✅ Firebase 立即寫入成功！");
       }
-    } catch (e) {
-      console.log("偵測發生錯誤:", e);
-    } finally {
-      setIsAnalyzing(false);
+
+      // 4. 本地儲存
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(finalData));
+      return finalData;
+
+    } catch (error) {
+      console.error("❌ 立即同步失敗:", error);
     }
   };
 
-  const startTimer = () => {
+  const handleStartAI = async () => {
+    // 點擊瞬間馬上同步
+    await syncFatigueData();
+    // 啟動相機介面
+    setIsStarted(true);
+  };
+
+  const stopSession = (isFinished = false) => {
+    console.log("--- 停止會話流程 ---");
     if (timerRef.current) clearInterval(timerRef.current);
+    
+    if (isFinished && navigation) {
+      // 流程結束時僅負責跳轉，因為數據已經在 handleStartAI 寫過了
+      navigation.navigate('HealthDataAnalysis', { refresh: Date.now() });
+    }
+    
+    setIsStarted(false);
+    setIsPoseCorrect(false);
+    setCurrentStepIndex(0);
+    setTimer(0);
+  };
+
+  const startTimer = () => {
     setTimer(step.duration);
     timerRef.current = setInterval(() => {
       setTimer(t => {
-        if (t <= 1) {
-          clearInterval(timerRef.current);
-          nextStep();
-          return 0;
+        if (t <= 1) { 
+          clearInterval(timerRef.current); 
+          nextStep(); 
+          return 0; 
         }
         return t - 1;
       });
@@ -143,111 +232,105 @@ export default function AISessionScreen() {
       setCurrentStepIndex(i => i + 1);
       setIsPoseCorrect(false);
     } else {
-      Speech.speak('收操圓滿結束', { language: 'zh-TW' });
-      stopSession();
+      Speech.speak('收操完成', { language: 'zh-TW' });
+      stopSession(true); 
     }
   };
 
-  const stopSession = () => {
-    clearInterval(timerRef.current);
-    setIsStarted(false);
-    setIsPoseCorrect(false);
-    setCurrentStepIndex(0);
+  const analyzePose = async () => {
+    if (!detector || !cameraRef.current || isAnalyzing) return;
+    setIsAnalyzing(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.2, base64: true });
+      if (photo?.base64) {
+        const rawImageData = tf.util.encodeString(photo.base64, 'base64');
+        const imageTensor = decodeJpeg(new Uint8Array(rawImageData));
+        const poses = await detector.estimatePoses(imageTensor);
+        if (poses && poses.length > 0 && (poses[0].score ?? 0) > 0.2) {
+          setIsPoseCorrect(true);
+          Speech.speak(`偵測成功，收操開始`, { language: 'zh-TW' });
+          startTimer();
+        }
+        imageTensor.dispose();
+      }
+    } catch (e) {
+      console.error("AI 辨識錯誤:", e);
+    } finally { 
+      setIsAnalyzing(false); 
+    }
   };
 
-  if (!permission?.granted) {
-    return (
-      <View style={styles.center}>
-        <TouchableOpacity onPress={requestPermission} style={styles.mainBtn}>
-          <Text style={styles.btnText}>授權相機</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (!permission?.granted) return (
+    <View style={styles.center}>
+      <TouchableOpacity onPress={requestPermission} style={styles.mainBtn}>
+        <Text style={styles.btnText}>授權相機以啟用 AI 偵測</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       {!isStarted ? (
-        <ScrollView style={styles.scroll}>
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+          <Text style={styles.header}>AI 智慧舒緩助手</Text>
+          
           <Text style={styles.sectionTitle}>1. 選擇模式</Text>
           <View style={styles.modeRow}>
-            {[
-              { id: '一般', icon: <User size={24} color={selectedMode === '一般' ? '#FFF' : '#94A3B8'} /> },
-              { id: '高齡', icon: <ShieldCheck size={24} color={selectedMode === '高齡' ? '#FFF' : '#94A3B8'} /> },
-              { id: '上班族', icon: <Briefcase size={24} color={selectedMode === '上班族' ? '#FFF' : '#94A3B8'} /> }
-            ].map(m => (
-              <TouchableOpacity key={m.id} onPress={() => setSelectedMode(m.id)} style={[styles.modeCard, selectedMode === m.id && styles.modeCardActive]}>
-                <View style={[styles.iconCircle, selectedMode === m.id && styles.iconCircleActive]}>{m.icon}</View>
-                <Text style={[styles.modeLabel, selectedMode === m.id && styles.modeLabelActive]}>{m.id}</Text>
+            {[{ id: '一般', icon: '🏃‍♂️', color: '#3498DB' }, { id: '高齡', icon: '👴', color: '#E67E22' }, { id: '上班族', icon: '💼', color: '#16A085' }].map(m => (
+              <TouchableOpacity key={m.id} onPress={() => setSelectedMode(m.id)} style={[styles.modeCard, selectedMode === m.id && { borderColor: m.color, backgroundColor: m.color + '15' }]}>
+                <Text style={styles.modeIcon}>{m.icon}</Text>
+                <Text style={[styles.modeLabel, selectedMode === m.id && { color: m.color }]}>{m.id}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
           <View style={styles.paramCard}>
-            <Text style={styles.sectionTitle}>2. 運動參數</Text>
-            <View style={styles.paramItem}>
-              <View style={styles.labelRow}><Activity size={18} color="#64748B" /><Text style={styles.paramLabel}>運動項目</Text></View>
-              <View style={styles.chipGrid}>
-                {Object.keys(EXERCISE_ROUTINES).map(t => (
-                  <TouchableOpacity key={t} onPress={() => setExerciseType(t as any)} style={[styles.chip, exerciseType === t && styles.chipActive]}>
-                    <Text style={[styles.chipText, exerciseType === t && styles.chipTextActive]}>{t}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <Text style={styles.sectionTitle}>2. {isOfficeMode ? '生活型態' : '先前運動'}</Text>
+            <View style={styles.chipGrid}>
+              {availableOptions.map(t => (
+                <TouchableOpacity key={t} onPress={() => setExerciseType(t)} style={[styles.chip, exerciseType === t && styles.chipActive]}>
+                  <Text style={[styles.chipText, exerciseType === t && styles.chipTextActive]}>{t}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            <View style={styles.paramItem}>
-              <Text style={styles.paramLabel}>先前強度</Text>
-              <View style={styles.chipGrid}>
-                {['弱', '中', '強'].map(v => (
-                  <TouchableOpacity key={v} onPress={() => setIntensity(v)} style={[styles.chip, intensity === v && styles.chipActive]}>
-                    <Text style={[styles.chipText, intensity === v && styles.chipTextActive]}>{v}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.paramItem}>
-              <Text style={styles.paramLabel}>運動時長: {duration}</Text>
-              <View style={styles.chipGrid}>
-                {['0.5h', '1h', '2h', '3h'].map(v => (
-                  <TouchableOpacity key={v} onPress={() => setDuration(v)} style={[styles.chip, duration === v && styles.chipActive]}>
-                    <Text style={[styles.chipText, duration === v && styles.chipTextActive]}>{v}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <Text style={[styles.sectionTitle, { marginTop: 20 }]}>3. 方才運動時長 (分鐘)</Text>
+            <View style={styles.chipGrid}>
+              {['15', '30', '60+'].map(d => (
+                <TouchableOpacity key={d} onPress={() => setExerciseDuration(d)} style={[styles.timeChip, exerciseDuration === d && styles.timeChipActive]}>
+                  <Text style={[styles.chipText, exerciseDuration === d && styles.chipTextActive]}>{d} 分鐘</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
-          <TouchableOpacity onPress={() => setIsStarted(true)} style={styles.startBtn}>
-            <Play color="#FFF" fill="#FFF" size={20} />
-            <Text style={styles.startBtnText}>開始訓練</Text>
+          {/* 修改點：改為呼叫 handleStartAI */}
+          <TouchableOpacity onPress={handleStartAI} style={styles.startBtn}>
+            <Text style={styles.startBtnText}>進入 AI 偵測收操</Text>
           </TouchableOpacity>
         </ScrollView>
       ) : (
         <CameraView ref={cameraRef} style={{ flex: 1 }} facing="front">
           <View style={styles.cameraOverlay}>
-             <View style={styles.hudCard}>
-                {/* ✅ 新增：動作指引小圖區塊 */}
-                <View style={styles.instructionRow}>
-                  <Image source={{ uri: step.imageUrl }} style={styles.guideImage} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.hudTitle}>{step.title}</Text>
-                    <Text style={styles.hudHint}>{step.hint}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.timerCircle}>
-                   <Text style={styles.hudTimer}>{timer > 0 ? timer : "--"}</Text>
-                </View>
+            <View style={styles.hudCard}>
+              <Image source={{ uri: step.imageUrl }} style={styles.guideImage} />
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={styles.hudTitle}>{step.title}</Text>
+                <Text style={styles.hudHint}>{step.hint}</Text>
               </View>
-
+              <View style={styles.timerCircle}><Text style={styles.hudTimer}>{timer}</Text></View>
+            </View>
+            
+            <View style={styles.bottomControls}>
               {!isPoseCorrect && (
-                <TouchableOpacity onPress={analyzePose} style={styles.detectBtn} disabled={isAnalyzing}>
-                  {isAnalyzing ? <ActivityIndicator color="#FFF" /> : <Text style={styles.detectBtnText}>辨識姿勢</Text>}
+                <TouchableOpacity onPress={analyzePose} style={styles.detectBtn}>
+                  <Text style={styles.detectBtnText}>{isAnalyzing ? '姿勢分析中...' : '📸 點擊辨識姿勢並計時'}</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={stopSession} style={styles.exitBtn}><Text style={styles.exitBtnText}>結束</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => stopSession(false)} style={styles.exitBtn}>
+                <Text style={styles.exitBtnText}>結束當前會話</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </CameraView>
       )}
@@ -255,44 +338,46 @@ export default function AISessionScreen() {
   );
 }
 
+// ... styles 部分保持不變
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  scroll: { padding: 20, paddingTop: 50 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#64748B', marginBottom: 15 },
-  modeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
-  modeCard: { width: '30%', padding: 15, backgroundColor: '#FFF', borderRadius: 20, alignItems: 'center', borderWidth: 2, borderColor: '#E2E8F0' },
-  modeCardActive: { borderColor: '#3498DB', backgroundColor: '#F0F9FF' },
-  iconCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  iconCircleActive: { backgroundColor: '#3498DB' },
-  modeLabel: { fontSize: 14, color: '#94A3B8', fontWeight: '600' },
-  modeLabelActive: { color: '#3498DB' },
-  paramCard: { backgroundColor: '#FFF', borderRadius: 30, padding: 25, elevation: 5 },
-  paramItem: { marginBottom: 20 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  paramLabel: { fontSize: 15, color: '#64748B', fontWeight: '600' },
+  container: { flex: 1, backgroundColor: '#F0F4F8' },
+  scroll: { padding: 25, paddingTop: 60 },
+  header: { fontSize: 26, fontFamily:'Zen', color: '#2C3E50', marginBottom: 30, textAlign: 'center',marginTop: -40 },
+  sectionTitle: { fontSize: 16, fontFamily:'Zen', color: '#7F8C8D', marginBottom: 15 },
+  modeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+  modeCard: { 
+    width: '31%', padding: 15, backgroundColor: '#FFF', borderRadius: 20, 
+    alignItems: 'center', borderWidth: 2, borderColor: 'transparent',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5
+  },
+  modeIcon: { fontSize: 28, marginBottom: 5, fontFamily:'Zen' },
+  modeLabel: { fontSize: 14, fontFamily:'Zen', color: '#95A5A6' },
+  paramCard: { backgroundColor: '#FFF', borderRadius: 25, padding: 20, elevation: 3 },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  chip: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12, backgroundColor: '#F1F5F9' },
-  chipActive: { backgroundColor: '#3498DB' },
-  chipText: { color: '#94A3B8', fontWeight: '600' },
-  chipTextActive: { color: '#FFF' },
-  startBtn: { backgroundColor: '#0F172A', padding: 20, borderRadius: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 20, marginBottom: 50 },
-  startBtnText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  
-  // HUD 樣式修正
-  cameraOverlay: { flex: 1, justifyContent: 'space-between', padding: 20, backgroundColor: 'rgba(0,0,0,0.1)' },
-  hudCard: { backgroundColor: 'rgba(255,255,255,0.95)', padding: 15, borderRadius: 25, alignItems: 'center' },
-  instructionRow: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 10 },
-  guideImage: { width: 70, height: 70, borderRadius: 12, backgroundColor: '#E2E8F0' },
-  hudTitle: { fontSize: 20, fontWeight: 'bold', color: '#0F172A' },
-  hudHint: { fontSize: 13, color: '#64748B' },
-  timerCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: '#3498DB', justifyContent: 'center', alignItems: 'center' },
-  hudTimer: { fontSize: 28, fontWeight: 'bold', color: '#3498DB' },
-  
-  detectBtn: { backgroundColor: '#3498DB', padding: 18, borderRadius: 50, alignItems: 'center' },
-  detectBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 18 },
-  exitBtn: { alignSelf: 'center', padding: 10, marginBottom: 10 },
-  exitBtnText: { color: '#FFF', fontWeight: 'bold' },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, backgroundColor: '#F1F5F9' },
+  chipActive: { backgroundColor: '#34495E' },
+  timeChip: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 50, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DCDFE6' },
+  timeChipActive: { backgroundColor: '#27AE60', borderColor: '#27AE60' },
+  chipText: { color: '#7F8C8D', fontFamily:'Zen', fontSize: 13 },
+  chipTextActive: { color: '#FFF', fontFamily:'Zen' },
+  startBtn: { backgroundColor: '#2C3E50', padding: 20, borderRadius: 20, alignItems: 'center', marginTop: 30, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10 },
+  startBtnText: { color: '#FFF', fontSize: 18, fontFamily:'Zen' },
+  cameraOverlay: { flex: 1, justifyContent: 'space-between', padding: 20 },
+  hudCard: { 
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.95)', 
+    padding: 15, borderRadius: 25, alignItems: 'center', marginTop: 40 
+  },
+  guideImage: { width: 60, height: 60, borderRadius: 10 },
+  hudTitle: { fontSize: 18, fontFamily:'Zen' },
+  hudHint: { fontSize: 12, color: '#7F8C8D', fontFamily:'Zen' },
+  timerCircle: { width: 50, height: 50, borderRadius: 25, borderWidth: 3, borderColor: '#3498DB', justifyContent: 'center', alignItems: 'center' },
+  hudTimer: { fontSize: 20, fontFamily:'Zen', color: '#3498DB' },
+  bottomControls: { gap: 10 },
+  detectBtn: { backgroundColor: '#3498DB', padding: 18, borderRadius: 50, alignItems: 'center', elevation: 5 },
+  detectBtnText: { color: '#FFF', fontFamily:'Zen', fontSize: 16 },
+  exitBtn: { alignSelf: 'center', padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 15 },
+  exitBtnText: { color: '#FFF', fontSize: 12, fontFamily:'Zen' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  mainBtn: { backgroundColor: '#3498DB', padding: 15, borderRadius: 10 },
-  btnText: { color: '#FFF', fontWeight: 'bold' }
+  mainBtn: { backgroundColor: '#3498DB', padding: 15, borderRadius: 12 },
+  btnText: { color: '#FFF', fontFamily:'Zen' }
 });

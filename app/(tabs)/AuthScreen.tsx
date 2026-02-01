@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 // 匯入 Firebase 配置
@@ -27,6 +27,8 @@ const AuthScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // 新增：控制密碼是否可見
+  const [showPassword, setShowPassword] = useState(false);
 
   // 自定義 Modal 狀態
   const [modalVisible, setModalVisible] = useState(false);
@@ -140,14 +142,22 @@ const AuthScreen = () => {
 
             <View style={styles.inputContainer}>
               <Text style={[styles.inputLabel, themeStyles.text]}>密碼</Text>
-              <TextInput
-                style={[styles.input, themeStyles.inputBG, themeStyles.text]}
-                placeholder="至少 6 位密碼"
-                placeholderTextColor={isDark ? "#888" : "#999"}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View style={styles.passwordWrapper}>
+                <TextInput
+                  style={[styles.input, themeStyles.inputBG, themeStyles.text, { flex: 1 }]}
+                  placeholder="至少 6 位密碼"
+                  placeholderTextColor={isDark ? "#888" : "#999"}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity 
+                  style={styles.eyeButton} 
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Text style={{ fontSize: 18 }}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TouchableOpacity 
@@ -214,6 +224,19 @@ const styles = StyleSheet.create({
   inputContainer: { 
     marginBottom: 20,
     width: '100%'
+  },
+
+  // 密碼框特殊包裹器
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative'
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 15,
+    height: '100%',
+    justifyContent: 'center',
   },
 
   // 顏色模式樣式定義

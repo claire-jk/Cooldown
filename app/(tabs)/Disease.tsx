@@ -13,14 +13,17 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+// 1. 引入 SafeAreaContext (Expo 專案預設都有安裝)
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 // 匯入 Firebase 配置
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
 
-const Disease = () => {
+const DiseaseContent = () => { // 拆分內容組件以便使用 Insets
   const router = useRouter();
+  const insets = useSafeAreaInsets(); // 獲取安全區域數值
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
   const [injuryType, setInjuryType] = useState<string | null>(null);
   const [customInjury, setCustomInjury] = useState('');
@@ -28,24 +31,14 @@ const Disease = () => {
 
   const injuryCategories = ['骨傷', '肌腱發炎', '神經壓迫', '肌肉拉傷', '韌帶撕裂', '慢性勞損'];
 
-  const handleBodyPartPress = (partName: string) => {
-    setSelectedPart(partName);
-  };
+  // ... (handleBodyPartPress, handleSave, getPartColor, getJointColor, HitArea 代碼保持不變)
+  const handleBodyPartPress = (partName: string) => setSelectedPart(partName);
 
   const handleSave = async () => {
     const finalType = customInjury.trim() !== '' ? customInjury : injuryType;
     const user = auth.currentUser;
-
-    if (!user) {
-      Alert.alert("提醒", "請先登入後再記錄傷病資料");
-      return;
-    }
-
-    if (!selectedPart || !finalType) {
-      Alert.alert("提醒", "請先點選部位並確定傷病類型");
-      return;
-    }
-
+    if (!user) { Alert.alert("提醒", "請先登入後再記錄傷病資料"); return; }
+    if (!selectedPart || !finalType) { Alert.alert("提醒", "請先點選部位並確定傷病類型"); return; }
     setLoading(true);
     try {
       await addDoc(collection(db, 'injuries'), {
@@ -57,33 +50,21 @@ const Disease = () => {
         createdAt: serverTimestamp(),
         date: new Date().toISOString().split('T')[0]
       });
-
       Alert.alert("存檔成功", "您的傷病紀錄已同步至雲端。", [
         { text: "前往紀錄檔", onPress: () => router.push('/InjuryHistory') }
       ]);
     } catch (error) {
-      console.error("Firebase Error: ", error);
       Alert.alert("同步失敗", "請檢查網路連線或稍後再試");
     } finally {
       setLoading(false);
     }
   };
 
-  const getPartColor = (partGroup: string[]) => 
-    partGroup.includes(selectedPart || '') ? "url(#selectedGrad)" : "#E2E8F0";
-
-  const getJointColor = (part: string) =>
-    selectedPart === part ? "#E11D48" : "#94A3B8";
+  const getPartColor = (partGroup: string[]) => partGroup.includes(selectedPart || '') ? "url(#selectedGrad)" : "#E2E8F0";
+  const getJointColor = (part: string) => selectedPart === part ? "#E11D48" : "#94A3B8";
 
   const HitArea = ({ cx, cy, rx = 22, ry = 22, part }: { cx: number, cy: number, rx?: number, ry?: number, part: string }) => (
-    <Ellipse
-      cx={cx}
-      cy={cy}
-      rx={rx}
-      ry={ry}
-      fill="transparent"
-      onPress={() => handleBodyPartPress(part)}
-    />
+    <Ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="transparent" onPress={() => handleBodyPartPress(part)} />
   );
 
   return (
@@ -94,7 +75,11 @@ const Disease = () => {
       <StatusBar barStyle="dark-content" />
       <ScrollView 
         style={styles.container} 
-        contentContainerStyle={styles.contentContainer}
+        // 2. 使用 insets.top 動態調整內距，確保標題不會被擋住
+        contentContainerStyle={[
+          styles.contentContainer, 
+          { paddingTop: insets.top + 20 } 
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
@@ -105,6 +90,7 @@ const Disease = () => {
           </View>
         </View>
 
+        {/* 骨架圖卡片 */}
         <View style={[styles.card, styles.shadowProp]}>
           <View style={styles.cardHeader}>
             <View style={styles.stepCircle}><Text style={styles.stepText}>1</Text></View>
@@ -135,10 +121,9 @@ const Disease = () => {
                 {/* 軀幹與頭部 */}
                 <Circle cx="120" cy="40" r="22" fill={getPartColor(['頭部'])} />
                 <Rect x="112" y="62" width="16" height="10" rx="2" fill={getPartColor(['頸部'])} />
-                <Path d="M85,80 Q120,75 155,80 L160,150 Q120,165 80,150 Z" fill={getPartColor(['胸部', '背部'])} />
-                <Path d="M85,155 Q120,165 155,155 L150,210 Q120,225 90,210 Z" fill={getPartColor(['腹部', '腰部'])} />
+                <Path d="M85,80 Q120,75 155,80 L160,150 Q120,165 80,150 Z" fill={getPartColor(['胸部', '背部', '胸背部'])} />
+                <Path d="M85,155 Q120,165 155,155 L150,210 Q120,225 90,210 Z" fill={getPartColor(['腹部', '腰部', '腰腹部'])} />
                 <Path d="M85,215 Q120,230 155,215 L165,245 Q120,260 75,245 Z" fill={getPartColor(['臀部'])} />
-
                 {/* 手臂區塊 */}
                 <Path d="M80,85 L55,145" stroke={getPartColor(['左肩', '左上臂'])} strokeWidth="16" strokeLinecap="round" />
                 <Path d="M160,85 L185,145" stroke={getPartColor(['右肩', '右上臂'])} strokeWidth="16" strokeLinecap="round" />
@@ -146,50 +131,39 @@ const Disease = () => {
                 <Path d="M185,145 L200,200" stroke={getPartColor(['右肘', '右前臂'])} strokeWidth="14" strokeLinecap="round" />
                 <Circle cx="35" cy="215" r="8" fill={getPartColor(['左手掌'])} />
                 <Circle cx="205" cy="215" r="8" fill={getPartColor(['右手掌'])} />
-
                 {/* 腿部區塊 */}
                 <Path d="M95,245 L85,340" stroke={getPartColor(['左大腿'])} strokeWidth="20" strokeLinecap="round" />
                 <Path d="M145,245 L155,340" stroke={getPartColor(['右大腿'])} strokeWidth="20" strokeLinecap="round" />
                 <Path d="M85,340 L85,435" stroke={getPartColor(['左小腿'])} strokeWidth="16" strokeLinecap="round" />
                 <Path d="M155,340 L155,435" stroke={getPartColor(['右小腿'])} strokeWidth="16" strokeLinecap="round" />
-
-                {/* 關節點視覺與腳掌 */}
+                <Circle cx="55" cy="145" r="7" fill={getJointColor('左肘')} />
+                <Circle cx="185" cy="145" r="7" fill={getJointColor('右肘')} />
                 <Circle cx="85" cy="345" r="7" fill={getJointColor('左膝')} />
                 <Circle cx="155" cy="345" r="7" fill={getJointColor('右膝')} />
                 <Circle cx="85" cy="445" r="6" fill={getJointColor('左踝')} />
                 <Circle cx="155" cy="445" r="6" fill={getJointColor('右踝')} />
                 <Rect x="70" y="455" width="25" height="10" rx="4" fill={getPartColor(['左腳掌'])} />
                 <Rect x="145" y="455" width="25" height="10" rx="4" fill={getPartColor(['右腳掌'])} />
-
-                {/* 隱形成像觸控點 (HitAreas) */}
+                {/* 觸控點 */}
                 <HitArea cx={120} cy={40} rx={25} ry={25} part="頭部" />
                 <HitArea cx={120} cy={68} rx={20} ry={10} part="頸部" />
                 <HitArea cx={120} cy={115} rx={35} ry={35} part="胸背部" />
                 <HitArea cx={120} cy={180} rx={30} ry={25} part="腰腹部" />
                 <HitArea cx={120} cy={235} rx={35} ry={20} part="臀部" />
-                
-                <HitArea cx={75} cy={95} part="左肩" />
-                <HitArea cx={165} cy={95} part="右肩" />
-                <HitArea cx={55} cy={145} part="左肘" />
-                <HitArea cx={185} cy={145} part="右肘" />
-                <HitArea cx={35} cy={215} part="左手掌" />
-                <HitArea cx={205} cy={215} part="右手掌" />
-
-                <HitArea cx={90} cy={290} rx={15} ry={40} part="左大腿" />
-                <HitArea cx={150} cy={290} rx={15} ry={40} part="右大腿" />
-                <HitArea cx={85} cy={345} part="左膝" />
-                <HitArea cx={155} cy={345} part="右膝" />
-                <HitArea cx={85} cy={395} rx={12} ry={35} part="左小腿" />
-                <HitArea cx={155} cy={395} rx={12} ry={35} part="右小腿" />
-                <HitArea cx={85} cy={445} part="左踝" />
-                <HitArea cx={155} cy={445} part="右踝" />
-                <HitArea cx={80} cy={465} rx={15} ry={10} part="左腳掌" />
-                <HitArea cx={160} cy={465} rx={15} ry={10} part="右腳掌" />
+                <HitArea cx={75} cy={95} part="左肩" /><HitArea cx={165} cy={95} part="右肩" />
+                <HitArea cx={55} cy={145} part="左肘" /><HitArea cx={185} cy={145} part="右肘" />
+                <HitArea cx={35} cy={215} part="左手掌" /><HitArea cx={205} cy={215} part="右手掌" />
+                <HitArea cx={90} cy={290} rx={15} ry={40} part="左大腿" /><HitArea cx={150} cy={290} rx={15} ry={40} part="右大腿" />
+                <HitArea cx={85} cy={345} part="左膝" /><HitArea cx={155} cy={345} part="右膝" />
+                <HitArea cx={85} cy={395} rx={12} ry={35} part="左小腿" /><HitArea cx={155} cy={395} rx={12} ry={35} part="右小腿" />
+                <HitArea cx={85} cy={445} part="左踝" /><HitArea cx={155} cy={445} part="右踝" />
+                <HitArea cx={80} cy={465} rx={15} ry={10} part="左腳掌" /><HitArea cx={160} cy={465} rx={15} ry={10} part="右腳掌" />
               </G>
             </Svg>
           </View>
         </View>
 
+        {/* 類型選擇卡片 */}
         <View style={[styles.card, styles.shadowProp]}>
           <View style={styles.cardHeader}>
             <View style={styles.stepCircle}><Text style={styles.stepText}>2</Text></View>
@@ -231,10 +205,20 @@ const Disease = () => {
   );
 };
 
+// 3. 最外層包裹 Provider
+export default function Disease() {
+  return (
+    <SafeAreaProvider>
+      <DiseaseContent />
+    </SafeAreaProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  contentContainer: { padding: 20, paddingTop: 40 },
-  header: { marginBottom: 25,marginTop:-40 },
+  // 4. 這裡的 paddingTop 會在組件內動態覆蓋，保持基本 padding 即可
+  contentContainer: { paddingHorizontal: 20, paddingBottom: 40 }, 
+  header: { marginBottom: 25 }, // 5. 移除原本錯誤的 marginTop: -40
   title: { fontSize: 34, fontFamily:'Zen', color: '#0F172A', letterSpacing: -1 },
   badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 10, borderWidth: 1, borderColor: '#E2E8F0' },
   pulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981', marginRight: 8 },
@@ -263,5 +247,3 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#FFFFFF', fontSize: 18, fontFamily:'Zen' },
   footerNote: { textAlign: 'center', color: '#94A3B8', fontSize: 13, marginBottom: 50, marginTop: 10 , fontFamily:'Zen'},
 });
-
-export default Disease;

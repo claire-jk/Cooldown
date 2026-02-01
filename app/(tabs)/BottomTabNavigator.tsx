@@ -124,21 +124,25 @@ const styles = StyleSheet.create({
   },
   // --- Tab Bar 樣式 (保持並優化) ---
   tabBar: {
-    position: 'absolute',
-    bottom: 25,
-    left: 20,
-    right: 20,
-    height: 70,
+// 移除 absolute 定位，讓它自然回歸底部
+    position: 'relative', 
+    height: Platform.OS === 'ios' ? 88 : 70, // iOS 通常需要更高一點來容納底部安全區域
     backgroundColor: '#FFFFFF',
-    borderRadius: 30, // 更圓潤
+    // 移除左右間距與大圓角
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 0, 
+    // 保留陰影或改為頂部邊框
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
-    borderTopWidth: 0,
-    paddingBottom: Platform.OS === 'ios' ? 0 : 0,
-    overflow: 'hidden',
+    shadowOffset: { width: 0, height: -2 }, // 陰影向上
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 20,
+    borderTopWidth: 1,
+    borderColor: '#F1F5F9',
+    // 處理底部填充
+    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
   },
   iconContainer: {
     width: 42,

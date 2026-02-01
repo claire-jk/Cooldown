@@ -153,9 +153,9 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
     },
     backBtn: { width: 45, height: 45, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 22.5 },
-    backBtnIcon: { color: '#64748B', fontSize: 12, fontWeight: 'bold' },
-    headerTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A' },
-    headerSubtitle: { fontSize: 12, color: '#94A3B8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+    backBtnIcon: { color: '#64748B', fontSize: 12, fontFamily: 'Zen' },
+    headerTitle: { fontSize: 22, fontFamily: 'Zen', color: '#0F172A' },
+    headerSubtitle: { fontSize: 12, color: '#94A3B8', fontFamily: 'Caveat', textTransform: 'uppercase', letterSpacing: 1 },
     avatarPlaceholder: { width: 45, height: 45, backgroundColor: '#E2E8F0', borderRadius: 22.5 },
 
     scrollContent: { padding: 25 },
@@ -172,8 +172,8 @@ const styles = StyleSheet.create({
         borderColor: '#BAE6FD'
     },
     infoIconBg: { width: 35, height: 35, backgroundColor: '#FFF', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-    infoText: { flex: 1, color: '#0369A1', fontSize: 14, lineHeight: 22, fontWeight: '500' },
-    boldText: { fontWeight: 'bold', color: '#0284C7' },
+    infoText: { flex: 1, color: '#0369A1', fontSize: 14, lineHeight: 22, fontFamily: 'Zen'},
+    boldText: { fontFamily: 'Zen', color: '#0284C7' },
 
     // 傷病卡片 (左側點綴色)
     injuryCard: { 
@@ -195,10 +195,10 @@ const styles = StyleSheet.create({
     // 狀態標籤
     statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15 },
     dot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-    statusText: { fontSize: 12, fontWeight: '800' },
-    dateText: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+    statusText: { fontSize: 12, fontFamily: 'Zen' },
+    dateText: { fontSize: 12, color: '#94A3B8', fontFamily: 'Zen' },
 
-    partTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B', marginBottom: 4 },
+    partTitle: { fontSize: 20, fontFamily: 'Zen', color: '#1E293B', marginBottom: 4 },
     typeText: { fontSize: 15, color: '#64748B', lineHeight: 20 },
 
     // 卡片按鈕
@@ -211,15 +211,15 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 16
     },
-    detailBtnText: { color: '#3B82F6', fontWeight: '700', fontSize: 14 },
-    arrowIcon: { color: '#3B82F6', fontSize: 18, fontWeight: 'bold' },
+    detailBtnText: { color: '#3B82F6', fontFamily: 'Zen', fontSize: 14 },
+    arrowIcon: { color: '#3B82F6', fontSize: 18, fontFamily: 'Zen' },
 
     // 新增按鈕
     addBtn: { marginTop: 10, borderRadius: 25, overflow: 'hidden', elevation: 5 },
     addBtnGradient: { padding: 20, alignItems: 'center' },
-    addBtnText: { color: '#FFF', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
+    addBtnText: { color: '#FFF', fontFamily: 'Zen', fontSize: 16, letterSpacing: 0.5 },
 
     emptyContainer: { alignItems: 'center', marginTop: 60 },
     emptyEmoji: { fontSize: 50, marginBottom: 15 },
-    emptyText: { color: '#94A3B8', fontSize: 16, fontWeight: '600' }
+    emptyText: { color: '#94A3B8', fontSize: 16, fontFamily: 'Zen'}
 });
